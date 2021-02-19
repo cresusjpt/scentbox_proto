@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import 'package:scentbox_proto/database/dao/BoitierDao.dart';
 import 'package:scentbox_proto/database/dao/MinuterieDao.dart';
 import 'package:scentbox_proto/database/dao/PlageHoraireDao.dart';
+import 'package:scentbox_proto/inheritedwidgets/IOWebSocketChannelWidget.dart';
+import 'package:scentbox_proto/inheritedwidgets/IOWebSocketChannelWidgetData.dart';
 import 'package:scentbox_proto/models/Boitier.dart';
 import 'package:scentbox_proto/network/RestApi.dart';
 import 'package:web_socket_channel/io.dart';
@@ -25,6 +27,7 @@ class _DetailState extends State<Detail> {
   bool _saving = true;
   bool isTogglePressed = false;
   String togglemessage = "OFF";
+  IOWebSocketChannelWidgetData inheritedData;
 
   bool advanceValue = true;
   double seekbar = 0;
@@ -90,8 +93,10 @@ class _DetailState extends State<Detail> {
       Navigator.pushReplacementNamed(context, '/remote',
           arguments: {'device': device});
     } else {
-      key.currentState.showSnackBar(SnackBar(
-          content: Text("Vous devez être connecté au wifi du diffuseur")));
+      if (key.currentState != null) {
+        Scaffold.of(context).showSnackBar(SnackBar(
+            content: Text("Vous devez être connecté au wifi du diffuseur")));
+      }
     }
   }
 
@@ -127,8 +132,10 @@ class _DetailState extends State<Detail> {
         Provider.of<BoitierDao>(context).updateDevice(device);
       }
     } else {
-      key.currentState.showSnackBar(SnackBar(
-          content: Text("Une erreur s'est produite pendant le scan.null")));
+      if (key.currentState != null) {
+        Scaffold.of(context).showSnackBar(SnackBar(
+            content: Text("Une erreur s'est produite pendant le scan.null")));
+      }
     }
   }
 
@@ -141,18 +148,24 @@ class _DetailState extends State<Detail> {
 
         ///assert if uniqueid exist (it's allow us to send request to web service), if not and we are not connected to diffuser wifi show snack to scan
         getIpAdress().then((ip) {
-          if ((device.uniqueid == null || device.uniqueid.isEmpty) &&
+          if ((device == null || device.uniqueid == null || device.uniqueid.isEmpty) &&
               !ip.startsWith(RestApi.BASE_URL_PART)) {
-            key.currentState.showSnackBar(SnackBar(
-              content: Text("Scanner le code du diffuseur"),
-              action: SnackBarAction(
-                label:
-                    "Veuillez scanner le code qr du boitier ou vous connecter à son wifi",
-                onPressed: scanBarCodeAction,
-              ),
-            ));
+            if (key.currentState != null) {
+              key.currentState.showSnackBar(SnackBar(
+                content: Text("Scanner le code du diffuseur"),
+                action: SnackBarAction(
+                  label:
+                      "Veuillez scanner le code qr du boitier ou vous connecter à son wifi",
+                  onPressed: scanBarCodeAction,
+                ),
+              ));
+            }
           }
         });
+        checkDiffuserState();
+      });
+      setState(() {
+        _saving = false;
       });
     });
     super.initState();
@@ -164,7 +177,12 @@ class _DetailState extends State<Detail> {
     super.dispose();
   }
 
-  void togglePressed() async{
+  void checkDiffuserState() {
+    String message = "Etat";
+    channel.sink.add(message);
+  }
+
+  void togglePressed() async {
     isTogglePressed = !isTogglePressed;
     togglemessage = isTogglePressed ? "ON" : "OFF";
     device.state = isTogglePressed;
@@ -173,15 +191,23 @@ class _DetailState extends State<Detail> {
       int mode = isTogglePressed ? 2 : 0;
       DateTime now = DateTime.now();
       String formattedHour = DateFormat('HH:mm:ss').format(now);
-      RestApi.createClient().manualSwitch(mode, formattedHour,device.getCommandeIntensite()).then((it) {
-        key.currentState.showSnackBar(SnackBar(content: Text("Action bien effectuée")));
-      }).catchError((Object obj){
+      RestApi.createClient()
+          .manualSwitch(mode, formattedHour, device.getCommandeIntensite())
+          .then((it) {
+        if (key.currentState != null) {
+          key.currentState
+              .showSnackBar(SnackBar(content: Text("Action bien effectuée")));
+        }
+      }).catchError((Object obj) {
         isTogglePressed = !isTogglePressed;
         togglemessage = isTogglePressed ? "ON" : "OFF";
         device.state = isTogglePressed;
-        key.currentState.showSnackBar(SnackBar(content: Text("Une erreur s'est produite")));
+        if (key.currentState != null) {
+          key.currentState.showSnackBar(
+              SnackBar(content: Text("Une erreur s'est produite")));
+        }
       });
-    }else{
+    } else {
       int mode = isTogglePressed ? 1 : 0;
       String message = "Manuel/$mode;${device.getCommandeIntensite()}";
       channel.sink.add(message);
@@ -191,11 +217,32 @@ class _DetailState extends State<Detail> {
     });
   }
 
-  void connectAndListenWebSocket(){
+  void connectAndListenWebSocket() {
+    inheritedData = IOWebSocketChannelWidget.of(context).data;
     endpoint = "${RestApi.WEBSOCKET_URL_PART}app_${device.uniqueid}";
     channel = IOWebSocketChannel.connect(Uri.parse(endpoint));
+
     channel.stream.listen((event) {
+      bool deviceState = false;
+      if (event.toString() == "on") {
+        deviceState = true;
+      } else if (event.toString() == "off") {
+        deviceState = false;
+      }
+
+      /*if (device.state != deviceState) {
+        device.state = deviceState;
+        Provider.of<BoitierDao>(context).updateDevice(device);
+        Future.delayed(Duration(milliseconds: 1500)).then((value) {
+          setState(() {});
+        });
+      }*/
+      inheritedData.sink.add(event.toString());
       print("JEANPAUL message recu ${event.toString()}");
+      if (key.currentState != null) {
+        key.currentState
+            .showSnackBar(SnackBar(content: Text(event.toString())));
+      }
     });
   }
 
@@ -213,6 +260,7 @@ class _DetailState extends State<Detail> {
     return Scaffold(
       key: key,
       appBar: AppBar(
+        title: Text(device.label),
         elevation: 0,
         actions: [
           IconButton(

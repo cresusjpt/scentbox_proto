@@ -28,7 +28,7 @@ class _PrincipalState extends State<Principal> {
           builder: (context, AsyncSnapshot<List<Boitier>> snapshot) {
             final List<Boitier> devices = snapshot.data ?? List();
             return ListView.builder(
-                itemExtent: 70,
+                itemExtent: 80,
                 itemCount: devices.length,
                 itemBuilder: (context, index) {
                   Boitier device = devices.elementAt(index);
@@ -47,7 +47,7 @@ class _PrincipalState extends State<Principal> {
                               arguments: device);
                         },
                         title: Text(device.label),
-                        subtitle: Text(device.uniqueid),
+                        subtitle: Text("${device.uniqueid} -- ${device.parfum}"),
                       ),
                     ),
                   );

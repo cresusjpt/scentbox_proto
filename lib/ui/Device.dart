@@ -130,6 +130,7 @@ class _DeviceState extends State<Device> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: Text("Ajouter Diffuseur"),
         actions: [
           IconButton(
             icon: Icon(Icons.add),

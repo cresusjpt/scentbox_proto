@@ -33,7 +33,7 @@ class Boitier {
     int ret = 0;
     switch(this.intensite){
       case 0:
-        ret = 0;
+        ret = 70;
         break;
       case 20:
         ret = 107;

@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
 import 'package:scentbox_proto/database/AppDatabase.dart';
+import 'package:scentbox_proto/inheritedwidgets/IOWebSocketChannelWidget.dart';
+import 'package:scentbox_proto/inheritedwidgets/IOWebSocketChannelWidgetData.dart';
+import 'package:scentbox_proto/network/RestApi.dart';
 import 'package:scentbox_proto/ui/Detail.dart';
 import 'package:scentbox_proto/ui/Device.dart';
 import 'package:scentbox_proto/ui/Horaire.dart';
 import 'package:scentbox_proto/ui/Minuteur.dart';
 import 'package:scentbox_proto/ui/Principal.dart';
+import 'package:web_socket_channel/io.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -69,14 +73,21 @@ class _AppState extends State<App> {
     }
   }
 
+  IOWebSocketChannelWidgetData channelWidgetData;
+  IOWebSocketChannel channel = IOWebSocketChannel.connect(RestApi.WEBSOCKET_URL_PART);
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: widget.title,
-      debugShowCheckedModeBanner: false,
-      initialRoute: "/",
-      routes: {},
-      onGenerateRoute: onGeneratedRoute,
+    channelWidgetData = IOWebSocketChannelWidgetData(webSocketChannel: channel);
+    return IOWebSocketChannelWidget(
+      data: channelWidgetData,
+      child: MaterialApp(
+        title: widget.title,
+        debugShowCheckedModeBanner: false,
+        initialRoute: "/",
+        routes: {},
+        onGenerateRoute: onGeneratedRoute,
+      ),
     );
   }
 }
