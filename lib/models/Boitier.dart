@@ -2,6 +2,7 @@ import 'package:floor/floor.dart';
 
 @entity
 class Boitier {
+
   @PrimaryKey(autoGenerate: true)
   int id;
   String uniqueid;

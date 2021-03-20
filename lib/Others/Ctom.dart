@@ -52,6 +52,7 @@ class CustomAlertDialogState extends State<CustomAlertDialog> {
 
   bool _resetValidate = false;
 
+  // ignore: close_sinks
   StreamController<bool> rebuild = StreamController<bool>();
 
   ///perform action when push dialog ok button
@@ -66,9 +67,9 @@ class CustomAlertDialogState extends State<CustomAlertDialog> {
     if (_resetKey.currentState.validate()) {
       _resetKey.currentState.save();
       try {
-        BoitierDao dao = Provider.of<BoitierDao>(context);
-        CalendrierDao calendrierDao = Provider.of<CalendrierDao>(context);
-        PlageHoraireDao horaireDao = Provider.of<PlageHoraireDao>(context);
+        BoitierDao dao = Provider.of<BoitierDao>(context,listen: false);
+        CalendrierDao calendrierDao = Provider.of<CalendrierDao>(context,listen: false);
+        PlageHoraireDao horaireDao = Provider.of<PlageHoraireDao>(context,listen: false);
 
         //add diffuser
         Boitier device = Boitier(
@@ -106,10 +107,12 @@ class CustomAlertDialogState extends State<CustomAlertDialog> {
         });
         _device = device;
         return true;
-      } catch (exception) {
+      } on Exception catch (exception) {
+        print(exception);
         return false;
       }
     } else {
+      //print('je suis dans le else du send');
       setState(() {
         _resetValidate = true;
       });
@@ -263,17 +266,19 @@ class CustomAlertDialogState extends State<CustomAlertDialog> {
           ),
         ),
         actions: <Widget>[
-          FlatButton(
+          TextButton(
             child: Text("Annuler"),
             onPressed: () {
-              Navigator.of(context).pop(_resetLabel);
+              Navigator.of(context).pop(null);
             },
           ),
-          FlatButton(
+          TextButton(
             child: Text("Valider"),
             onPressed: () {
               if (_send()) {
                 Navigator.of(context).pop(_device);
+              }else{
+                print('je suis dans le else');
               }
             },
           ),

@@ -37,7 +37,7 @@ class Calendrier{
   Map<String, dynamic> toJson() => _$CalendrierToJson(this);
 
   List<int> timerDays(){
-    List<int> ret = List();
+    List<int> ret = [];
     if(monday){
       ret.add(1);
     }

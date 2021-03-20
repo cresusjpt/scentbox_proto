@@ -6,9 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:scentbox_proto/Others/Ctom.dart';
 import 'package:scentbox_proto/database/dao/BoitierDao.dart';
 import 'package:scentbox_proto/models/Boitier.dart';
-import 'dart:io' show Platform;
 
-import 'package:retrofit/dio.dart';
 import 'package:scentbox_proto/network/RestApi.dart';
 //import 'package:html/parser.dart';
 
@@ -62,21 +60,17 @@ class _DeviceState extends State<Device> {
       String uniqueid = result.rawContent;
       if (uniqueid != null) {
         diffuser.uniqueid = uniqueid;
-        BoitierDao dao =
-        Provider.of<BoitierDao>(key.currentState.context);
-        if (dao != null) {
-          dao.updateDevice(diffuser);
-        }
+        Provider.of<BoitierDao>(key.currentState.context,listen: false).updateDevice(diffuser);
       } else {
         //Erreur lors du scan du qrcode
-        key.currentState.showSnackBar(
+        ScaffoldMessenger.of(key.currentState.context).showSnackBar(
           SnackBar(
               content: Text("Erreur lors du scan du qrcode"),
           )
         );
       }
     } else {
-      key.currentState.showSnackBar(
+      ScaffoldMessenger.of(key.currentState.context).showSnackBar(
           SnackBar(
             content: Text("Erreur lors du scan du qrcode"),
           )
@@ -110,7 +104,7 @@ class _DeviceState extends State<Device> {
         }
         Navigator.pop(context);
       } else {
-        key.currentState.showSnackBar(
+        ScaffoldMessenger.of(key.currentState.context).showSnackBar(
             SnackBar(
               content: Text("Une erreur s'est produite."),
             )

@@ -18,7 +18,7 @@ class _PrincipalState extends State<Principal> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("Scentbox"),
+        title: Text("SCENTBOX"),
         elevation: 0,
       ),
       key: key,
@@ -26,7 +26,7 @@ class _PrincipalState extends State<Principal> {
         child: StreamBuilder<List<Boitier>>(
           stream: boitierDao.watchDiffusers(),
           builder: (context, AsyncSnapshot<List<Boitier>> snapshot) {
-            final List<Boitier> devices = snapshot.data ?? List();
+            final List<Boitier> devices = snapshot.data ?? [];
             return ListView.builder(
                 itemExtent: 80,
                 itemCount: devices.length,

@@ -48,13 +48,14 @@ class _MinuteurState extends State<Minuteur> {
     String ip = await getIpAdress();
     if (!ip.startsWith(RestApi.BASE_URL_PART)) {
       String commande = "Minuteur*";
-      Provider.of<MinuterieDao>(context).deleteAll();
+      Provider.of<MinuterieDao>(context, listen: false).deleteAll();
       channel.sink.add(commande);
-    }else{
-      if(key != null && key.currentState != null)
-      key.currentState.showSnackBar(SnackBar(
-        content: Text("Vous êtes en connexion directe, cette fonctionnalité n'est pas encore implémentée"),
-      ));
+    } else {
+      if (key != null && key.currentState != null)
+        ScaffoldMessenger.of(key.currentState.context).showSnackBar(SnackBar(
+          content: Text(
+              "Vous êtes en connexion directe, cette fonctionnalité n'est pas encore implémentée"),
+        ));
     }
     Future.delayed(Duration(seconds: 2));
     setState(() {
@@ -66,19 +67,19 @@ class _MinuteurState extends State<Minuteur> {
     minuteur.on = !minuteur.on;
     String ip = await getIpAdress();
     if (ip.startsWith(RestApi.BASE_URL_PART)) {
-      if(key != null && key.currentState != null)
-      key.currentState.showSnackBar(SnackBar(
-        content: Text("Vous êtes en connexion directe, cette fonctionnalité n'est pas encore implémentée"),
-      ));
+      if (key != null && key.currentState != null)
+        ScaffoldMessenger.of(key.currentState.context).showSnackBar(SnackBar(
+          content: Text(
+              "Vous êtes en connexion directe, cette fonctionnalité n'est pas encore implémentée"),
+        ));
     } else {
-      print("JEANPAUL ENDPOINT $endpoint");
       String commande = minuteur.on ? "MinuteurAdd" : "MinuteurDelete";
       String message = "$commande/${minuteur.jour};${minuteur.heure}:00";
       print("Message envoyé minuteur : $message");
       channel.sink.add(message);
     }
     setState(() {
-      Provider.of<MinuterieDao>(context).updateMinuterie(minuteur);
+      Provider.of<MinuterieDao>(context, listen: false).updateMinuterie(minuteur);
     });
   }
 
@@ -87,12 +88,12 @@ class _MinuteurState extends State<Minuteur> {
     channel = IOWebSocketChannel.connect(Uri.parse(endpoint));
   }
 
-  void listenWebSocket(){
+  void listenWebSocket() {
     inheritedData = IOWebSocketChannelWidget.of(context).data;
 
     inheritedData.stream.listen((event) {
-      if(key != null && key.currentState != null)
-      key.currentState.showSnackBar(SnackBar(content: Text(event.toString())));
+      if (key != null && key.currentState != null)
+        ScaffoldMessenger.of(key.currentState.context).showSnackBar(SnackBar(content: Text(event.toString())));
     });
   }
 
@@ -104,7 +105,7 @@ class _MinuteurState extends State<Minuteur> {
       print('change $date in time zone ' +
           date.timeZoneOffset.inHours.toString());
     }, onConfirm: (date) {
-      final minuteurDao = Provider.of<MinuterieDao>(context);
+      final minuteurDao = Provider.of<MinuterieDao>(context, listen: false);
       Minuterie minuteur = Minuterie(
           idBoitier: device.id,
           on: false,
@@ -120,7 +121,7 @@ class _MinuteurState extends State<Minuteur> {
   @override
   Widget build(BuildContext context) {
     _title = " | Minuteurs ";
-    final minuteurDao = Provider.of<MinuterieDao>(context);
+    final minuteurDao = Provider.of<MinuterieDao>(context, listen: false);
     device = ModalRoute.of(context).settings.arguments;
 
     connectAndListenWebSocket();
@@ -149,7 +150,7 @@ class _MinuteurState extends State<Minuteur> {
           child: StreamBuilder<List<Minuterie>>(
             stream: minuteurDao.watchMinuteurByBoitier(device.id),
             builder: (context, AsyncSnapshot<List<Minuterie>> snapshot) {
-              final List<Minuterie> minuteurs = snapshot.data ?? List();
+              final List<Minuterie> minuteurs = snapshot.data ?? [];
               return ListView.builder(
                   itemCount: minuteurs.length,
                   itemBuilder: (context, index) {

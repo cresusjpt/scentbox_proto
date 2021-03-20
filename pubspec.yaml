@@ -26,7 +26,7 @@ dependencies:
   floor: ^0.18.0
   path_provider:
   path:
-  provider: ^3.0.0+1
+  provider: ^5.0.0
   retrofit: ^1.3.4
   logger: ^0.9.1
   barcode_scan: any
@@ -41,7 +41,7 @@ dependencies:
   collection: ^1.14.13
   get_ip: ^0.4.0
   web_socket_channel: ^1.2.0
-  intl: ^0.16.1
+  intl: ^0.17.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

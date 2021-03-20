@@ -22,6 +22,7 @@ class Horaire extends StatefulWidget {
 class _HoraireState extends State<Horaire> {
   String _title = " | Plage Horaire";
   Map data = {};
+  int connect = 0;
   Boitier device;
   Calendrier _calendrier;
   CalendrierDao _calendrierDao;
@@ -59,14 +60,15 @@ class _HoraireState extends State<Horaire> {
     endpoint = "${RestApi.WEBSOCKET_URL_PART}app_${device.uniqueid}";
     channel = IOWebSocketChannel.connect(Uri.parse(endpoint));
     channel.stream.listen((event) {
-      print("JEANPAUL message recu ${event.toString()}");
+      print("JEANPAUL message recu d'horaire ${event.toString()}");
     });
   }
 
   void listenWebSocket(){
     inheritedData = IOWebSocketChannelWidget.of(context).data;
     inheritedData.stream.listen((event) {
-      key.currentState.showSnackBar(SnackBar(
+      if(key != null && key.currentState != null)
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(event.toString()),
       ));
     });
@@ -120,10 +122,10 @@ class _HoraireState extends State<Horaire> {
     String ip = await getIpAdress();
     if (!ip.startsWith(RestApi.BASE_URL_PART)) {
       String commande = "Plage*";
-      //Provider.of<PlageHoraireDao>(context).deleteAll();
+      //Provider.of<PlageHoraireDao>(context, listen: false).deleteAll();
       channel.sink.add(commande);
     }else{
-      key.currentState.showSnackBar(SnackBar(
+      ScaffoldMessenger.of(key.currentState.context).showSnackBar(SnackBar(
         content: Text("Vous êtes en connexion directe, cette fonctionnalité n'est pas encore implémentée"),
       ));
     }
@@ -138,7 +140,7 @@ class _HoraireState extends State<Horaire> {
     object.on = !object.on;
     String ip = await getIpAdress();
     if (ip.startsWith(RestApi.BASE_URL_PART)) {
-      key.currentState.showSnackBar(SnackBar(
+      ScaffoldMessenger.of(key.currentState.context).showSnackBar(SnackBar(
         content: Text("Vous êtes en connexion directe, cette fonctionnalité n'est pas encore implémentée"),
       ));
     } else {
@@ -151,17 +153,23 @@ class _HoraireState extends State<Horaire> {
       });
     }
     setState(() {
-      Provider.of<PlageHoraireDao>(context).updateHoraire(object);
+      Provider.of<PlageHoraireDao>(context, listen: false).updateHoraire(object);
     });
+  }
+
+  @override
+  void dispose() {
+    channel.sink.close();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     _title = " | Horaires ";
-    final horaireDao = Provider.of<PlageHoraireDao>(context);
+    final horaireDao = Provider.of<PlageHoraireDao>(context, listen: false);
     if (data.isEmpty) {
       device = ModalRoute.of(context).settings.arguments;
-      _calendrierDao = Provider.of<CalendrierDao>(context);
+      _calendrierDao = Provider.of<CalendrierDao>(context, listen: false);
 
       _calendrierDao.getCalendrierByDiffuser(device.id).then((value) {
         _calendrier = value;
@@ -324,7 +332,7 @@ class _HoraireState extends State<Horaire> {
                   child: StreamBuilder<List<PlageHoraire>>(
                     stream: horaireDao.watchHoraireByDiffuser(device.id),
                     builder: (context, snapshot) {
-                      final horaires = snapshot.hasData ? snapshot.data : List();
+                      final horaires = snapshot.hasData ? snapshot.data : [];
                       return ListView.builder(
                         shrinkWrap: true,
                         itemCount: horaires.length,
@@ -358,7 +366,7 @@ class _HoraireState extends State<Horaire> {
                                                 object.heureFin =
                                                     "${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
                                                 Provider.of<PlageHoraireDao>(
-                                                        context)
+                                                        context, listen: false)
                                                     .updateHoraire(object);
                                               });
                                             },
@@ -398,7 +406,7 @@ class _HoraireState extends State<Horaire> {
                                                   object.heureDebut =
                                                       "${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
                                                   Provider.of<PlageHoraireDao>(
-                                                          context)
+                                                          context, listen: false)
                                                       .updateHoraire(object);
                                                 });
                                               },

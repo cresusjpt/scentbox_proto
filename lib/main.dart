@@ -14,7 +14,7 @@ import 'package:web_socket_channel/io.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  const String _appTitle = "ScentBox Proto";
+  const String _appTitle = "KLIPAIR Test Proto";
 
   final db = await $FloorAppDatabase.databaseBuilder('app_database.db').build();
 

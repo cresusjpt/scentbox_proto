@@ -2,7 +2,8 @@ import 'package:barcode_scan/barcode_scan.dart';
 import 'package:flutter/material.dart';
 import 'package:get_ip/get_ip.dart';
 import 'package:intl/intl.dart';
-import 'package:modal_progress_hud/modal_progress_hud.dart';
+
+//import 'package:modal_progress_hud/modal_progress_hud.dart';
 import 'package:provider/provider.dart';
 import 'package:scentbox_proto/database/dao/BoitierDao.dart';
 import 'package:scentbox_proto/database/dao/MinuterieDao.dart';
@@ -13,6 +14,8 @@ import 'package:scentbox_proto/models/Boitier.dart';
 import 'package:scentbox_proto/network/RestApi.dart';
 import 'package:web_socket_channel/io.dart';
 
+import '../database/dao/CalendrierDao.dart';
+
 class Detail extends StatefulWidget {
   @override
   _DetailState createState() => _DetailState();
@@ -22,9 +25,12 @@ class _DetailState extends State<Detail> {
   Map data = {};
   final key = GlobalKey<ScaffoldState>();
   Boitier device;
+  int firstTime = 0;
 
   BuildContext myContext;
-  bool _saving = true;
+  double value = 0;
+
+  //bool _saving = true;
   bool isTogglePressed = false;
   String togglemessage = "OFF";
   IOWebSocketChannelWidgetData inheritedData;
@@ -54,28 +60,24 @@ class _DetailState extends State<Detail> {
           content: new Text(content),
           actions: <Widget>[
             // usually buttons at the bottom of the dialog
-            FlatButton(
+            TextButton(
               child: Text("Annuler"),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
-            FlatButton(
+            TextButton(
               child: Text("OK"),
               onPressed: () async {
-                setState(() {
-                  _saving = true;
-                });
-
                 ///in only this order because of relation on the database tables
-                await Provider.of<PlageHoraireDao>(context)
+                await Provider.of<PlageHoraireDao>(context, listen: false)
                     .deleteByDiffuser(device.id);
-                await Provider.of<MinuterieDao>(context)
+                await Provider.of<MinuterieDao>(context, listen: false)
                     .deleteByBoitier(device.id);
-                await Provider.of<BoitierDao>(context).deleteDevice(device);
-                setState(() {
-                  _saving = false;
-                });
+                await Provider.of<CalendrierDao>(context,listen: false).deleteByDiffuser(device.id);
+                await Provider.of<BoitierDao>(context, listen: false)
+                    .deleteByBoitier(device.id);
+
                 Navigator.pop(context, true);
                 Navigator.pop(context);
                 Navigator.pushReplacementNamed(context, '/');
@@ -94,7 +96,7 @@ class _DetailState extends State<Detail> {
           arguments: {'device': device});
     } else {
       if (key.currentState != null) {
-        Scaffold.of(context).showSnackBar(SnackBar(
+        ScaffoldMessenger.of(key.currentState.context).showSnackBar(SnackBar(
             content: Text("Vous devez être connecté au wifi du diffuseur")));
       }
     }
@@ -117,10 +119,11 @@ class _DetailState extends State<Detail> {
       seekbar = newValue;
       labelSeekbar = "${seekbar.toInt()} %";
 
-      BoitierDao boitierDao = Provider.of<BoitierDao>(context);
+      BoitierDao boitierDao = Provider.of<BoitierDao>(context, listen: false);
       device.intensite = newValue.toInt();
       boitierDao.updateDevice(device);
     });
+    manualAction(isTogglePressed);
   }
 
   void scanBarCodeAction() async {
@@ -129,12 +132,12 @@ class _DetailState extends State<Detail> {
       String uniqueId = result.rawContent;
       if (uniqueId != null) {
         device.uniqueid = uniqueId;
-        Provider.of<BoitierDao>(context).updateDevice(device);
+        Provider.of<BoitierDao>(context, listen: false).updateDevice(device);
       }
     } else {
       if (key.currentState != null) {
-        Scaffold.of(context).showSnackBar(SnackBar(
-            content: Text("Une erreur s'est produite pendant le scan.null")));
+        ScaffoldMessenger.of(key.currentState.context).showSnackBar(SnackBar(
+            content: Text("Une erreur s'est produite pendant le scan")));
       }
     }
   }
@@ -143,29 +146,25 @@ class _DetailState extends State<Detail> {
   void initState() {
     Future.delayed(Duration(seconds: 3)).then((value) {
       Future.delayed(Duration(milliseconds: 1500));
-      setState(() {
-        _saving = false;
 
-        ///assert if uniqueid exist (it's allow us to send request to web service), if not and we are not connected to diffuser wifi show snack to scan
-        getIpAdress().then((ip) {
-          if ((device == null || device.uniqueid == null || device.uniqueid.isEmpty) &&
-              !ip.startsWith(RestApi.BASE_URL_PART)) {
-            if (key.currentState != null) {
-              key.currentState.showSnackBar(SnackBar(
-                content: Text("Scanner le code du diffuseur"),
-                action: SnackBarAction(
-                  label:
-                      "Veuillez scanner le code qr du boitier ou vous connecter à son wifi",
-                  onPressed: scanBarCodeAction,
-                ),
-              ));
-            }
+      ///assert if uniqueid exist (it's allow us to send request to web service), if not and we are not connected to diffuser wifi show snack to scan
+      getIpAdress().then((ip) {
+        if ((device == null ||
+                device.uniqueid == null ||
+                device.uniqueid.isEmpty) &&
+            !ip.startsWith(RestApi.BASE_URL_PART)) {
+          if (key.currentState != null) {
+            ScaffoldMessenger.of(key.currentState.context)
+                .showSnackBar(SnackBar(
+              content: Text("Scanner le code du diffuseur"),
+              action: SnackBarAction(
+                label:
+                    "Veuillez scanner le code qr du boitier ou vous connecter à son wifi",
+                onPressed: scanBarCodeAction,
+              ),
+            ));
           }
-        });
-        checkDiffuserState();
-      });
-      setState(() {
-        _saving = false;
+        }
       });
     });
     super.initState();
@@ -182,8 +181,9 @@ class _DetailState extends State<Detail> {
     channel.sink.add(message);
   }
 
-  void togglePressed() async {
-    isTogglePressed = !isTogglePressed;
+  void manualAction(bool manual) async {
+    isTogglePressed = manual;
+    value = isTogglePressed ? 0 : 1;
     togglemessage = isTogglePressed ? "ON" : "OFF";
     device.state = isTogglePressed;
     String ip = await getIpAdress();
@@ -194,8 +194,9 @@ class _DetailState extends State<Detail> {
       RestApi.createClient()
           .manualSwitch(mode, formattedHour, device.getCommandeIntensite())
           .then((it) {
+        print(it);
         if (key.currentState != null) {
-          key.currentState
+          ScaffoldMessenger.of(key.currentState.context)
               .showSnackBar(SnackBar(content: Text("Action bien effectuée")));
         }
       }).catchError((Object obj) {
@@ -203,7 +204,7 @@ class _DetailState extends State<Detail> {
         togglemessage = isTogglePressed ? "ON" : "OFF";
         device.state = isTogglePressed;
         if (key.currentState != null) {
-          key.currentState.showSnackBar(
+          ScaffoldMessenger.of(key.currentState.context).showSnackBar(
               SnackBar(content: Text("Une erreur s'est produite")));
         }
       });
@@ -213,34 +214,41 @@ class _DetailState extends State<Detail> {
       channel.sink.add(message);
     }
     setState(() {
-      Provider.of<BoitierDao>(context).updateDevice(device);
+      Provider.of<BoitierDao>(context, listen: false).updateDevice(device);
     });
+  }
+
+  void togglePressed() async {
+    isTogglePressed = !isTogglePressed;
+    manualAction(isTogglePressed);
   }
 
   void connectAndListenWebSocket() {
     inheritedData = IOWebSocketChannelWidget.of(context).data;
     endpoint = "${RestApi.WEBSOCKET_URL_PART}app_${device.uniqueid}";
+    print("endpoint $endpoint");
+
     channel = IOWebSocketChannel.connect(Uri.parse(endpoint));
 
     channel.stream.listen((event) {
-      bool deviceState = false;
+      /*bool deviceState = false;
       if (event.toString() == "on") {
         deviceState = true;
       } else if (event.toString() == "off") {
         deviceState = false;
       }
 
-      /*if (device.state != deviceState) {
+      if (device.state != deviceState) {
         device.state = deviceState;
         Provider.of<BoitierDao>(context).updateDevice(device);
         Future.delayed(Duration(milliseconds: 1500)).then((value) {
           setState(() {});
         });
       }*/
-      inheritedData.sink.add(event.toString());
-      print("JEANPAUL message recu ${event.toString()}");
-      if (key.currentState != null) {
-        key.currentState
+      //inheritedData.sink.add(event.toString());
+      print("JEANPAUL message recu de detail ${event.toString()}");
+      if (key != null && key.currentState != null && key.currentState.context != null) {
+        ScaffoldMessenger.of(key.currentState.context)
             .showSnackBar(SnackBar(content: Text(event.toString())));
       }
     });
@@ -254,8 +262,13 @@ class _DetailState extends State<Detail> {
       labelSeekbar = "${device.intensite}%";
       isTogglePressed = device.state;
       togglemessage = isTogglePressed ? "ON" : "OFF";
+      value = device.state ? 0 : 1;
     }
-    connectAndListenWebSocket();
+
+    if(firstTime == 0){
+      connectAndListenWebSocket();
+      firstTime = 1;
+    }
 
     return Scaffold(
       key: key,
@@ -297,117 +310,116 @@ class _DetailState extends State<Detail> {
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(8.0),
-            child: ModalProgressHUD(
-              inAsyncCall: _saving,
-              progressIndicator: CircularProgressIndicator(),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10, bottom: 10),
-                    child: Center(
-                      child: Container(
-                        width: MediaQuery.of(context).size.width / 3,
-                        height: MediaQuery.of(context).size.width / 3,
-                        child: RawMaterialButton(
-                          shape: CircleBorder(),
-                          elevation: 0.0,
-                          onPressed: togglePressed,
-                          child: Stack(
-                            overflow: Overflow.clip,
-                            children: <Widget>[
-                              Container(
-                                height: 250,
-                                width: 250,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 6,
-                                  backgroundColor: Color(0xFFB0CEE8),
-                                  value: 0.5,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      Color(0xFFE77834)),
-                                ),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 10),
+                  child: Center(
+                    child: Container(
+                      width: MediaQuery.of(context).size.width / 3,
+                      height: MediaQuery.of(context).size.width / 3,
+                      child: RawMaterialButton(
+                        shape: CircleBorder(),
+                        elevation: 0.0,
+                        onPressed: togglePressed,
+                        child: Stack(
+                          clipBehavior: Clip.hardEdge,
+                          children: <Widget>[
+                            Container(
+                              height: 250,
+                              width: 250,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 6,
+                                backgroundColor: Color(0xFFE77834),
+                                value: value,
+                                valueColor: value == 0
+                                    ? AlwaysStoppedAnimation<Color>(
+                                        Color(0xFFE77834))
+                                    : AlwaysStoppedAnimation<Color>(
+                                        Color(0xFFB0CEE8)),
                               ),
-                              Container(
-                                height: 250,
-                                width: 250,
-                                alignment: Alignment.center,
-                                child: Text(
-                                  togglemessage,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontSize: 20.0,
-                                      color: Color(0xFFB0CEE8),
-                                      fontWeight: FontWeight.bold),
-                                ),
+                            ),
+                            Container(
+                              height: 250,
+                              width: 250,
+                              alignment: Alignment.center,
+                              child: Text(
+                                togglemessage,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontSize: 20.0,
+                                    color: Color(0xFFB0CEE8),
+                                    fontWeight: FontWeight.bold),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        flex: 2,
-                        child: Text("Intensite"),
+                ),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      flex: 2,
+                      child: Text("Intensite"),
+                    ),
+                    Expanded(
+                      flex: 4,
+                      child: Slider(
+                        value: seekbar,
+                        divisions: 5,
+                        min: 0,
+                        max: 100,
+                        onChanged: _checkSliderPressed,
+                        onChangeEnd: (value) {
+                          _checkSliderStopped(context, value);
+                        },
                       ),
-                      Expanded(
-                        flex: 4,
-                        child: Slider(
-                          value: seekbar,
-                          divisions: 5,
-                          min: 0,
-                          max: 100,
-                          onChanged: _checkSliderPressed,
-                          onChangeEnd: (value) {
-                            _checkSliderStopped(context, value);
-                          },
-                        ),
-                      ),
-                      Expanded(
-                        flex: 1,
-                        child: Text(labelSeekbar),
-                      ),
-                    ],
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text(labelSeekbar),
+                    ),
+                  ],
+                ),
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    /*side: BorderSide(color: Colors.red)*/
                   ),
-                  Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                      /*side: BorderSide(color: Colors.red)*/
-                    ),
-                    elevation: 2.3,
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.pushNamed(context, "/horaire",
-                            arguments: device);
-                      },
-                      child: ListTile(
-                        title: Text("Plage Horaire"),
-                        trailing: Icon(Icons.chevron_right_outlined),
-                        subtitle: Text("Parametrage des plages horaires"),
-                      ),
-                    ),
-                  ),
-                  Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                      /*side: BorderSide(color: Colors.red)*/
-                    ),
-                    elevation: 2.3,
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.pushNamed(context, "/minuteur",
-                            arguments: device);
-                      },
-                      child: ListTile(
-                        title: Text("Minuteur"),
-                        trailing: Icon(Icons.chevron_right_outlined),
-                        subtitle: Text("Parametrage des minuteurs"),
-                      ),
+                  elevation: 2.3,
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pushNamed(context, "/horaire",
+                          arguments: device);
+                    },
+                    child: ListTile(
+                      title: Text("Plage Horaire"),
+                      trailing: Icon(Icons.chevron_right_outlined),
+                      subtitle: Text("Parametrage des plages horaires"),
                     ),
                   ),
-                ],
-              ),
+                ),
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    /*side: BorderSide(color: Colors.red)*/
+                  ),
+                  elevation: 2.3,
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pushNamed(context, "/minuteur",
+                          arguments: device);
+                    },
+                    child: ListTile(
+                      title: Text("Minuteur"),
+                      trailing: Icon(Icons.chevron_right_outlined),
+                      subtitle: Text("Parametrage des minuteurs"),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
