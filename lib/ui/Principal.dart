@@ -18,7 +18,7 @@ class _PrincipalState extends State<Principal> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("SCENTBOX"),
+        title: Text("KLIPAIR TEST"),
         elevation: 0,
       ),
       key: key,
